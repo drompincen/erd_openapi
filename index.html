@@ -649,8 +649,8 @@
                                 edges.push({
                                     from: schemaName,
                                     to: target,
-                                    type: 'one-to-one',
-                                    label: '1–1'
+                                    type: 'inheritance',
+                                    label: ''
                                 });
                             }
                         }
@@ -748,40 +748,141 @@
             const render = new dagreD3.render();
             render(inner, g);
 
-            svg.append('defs').selectAll('marker')
-                .data(['one-to-one', 'one-to-many', 'many-to-many'])
-                .enter().append('marker')
-                .attr('id', d => `arrowhead-${d}`)
+            const defs = svg.append('defs');
+
+            defs.append('marker')
+                .attr('id', 'marker-inheritance')
                 .attr('viewBox', '0 0 10 10')
-                .attr('refX', 9)
+                .attr('refX', 10)
+                .attr('refY', 5)
+                .attr('markerWidth', 8)
+                .attr('markerHeight', 8)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+                .attr('fill', 'none')
+                .attr('stroke', 'currentColor')
+                .attr('stroke-width', 2);
+
+            defs.append('marker')
+                .attr('id', 'marker-bar-end')
+                .attr('viewBox', '0 0 10 10')
+                .attr('refX', 10)
                 .attr('refY', 5)
                 .attr('markerWidth', 6)
                 .attr('markerHeight', 6)
                 .attr('orient', 'auto')
                 .append('path')
-                .attr('d', 'M 0 0 L 10 5 L 0 10 z')
-                .attr('fill', d => {
-                    if (d === 'one-to-one') return '#6aa9ff';
-                    if (d === 'one-to-many') return '#39d98a';
-                    return '#a78bfa';
+                .attr('d', 'M 8 0 L 8 10')
+                .attr('fill', 'none')
+                .attr('stroke', 'currentColor')
+                .attr('stroke-width', 2);
+
+            defs.append('marker')
+                .attr('id', 'marker-bar-start')
+                .attr('viewBox', '0 0 10 10')
+                .attr('refX', 0)
+                .attr('refY', 5)
+                .attr('markerWidth', 6)
+                .attr('markerHeight', 6)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M 2 0 L 2 10')
+                .attr('fill', 'none')
+                .attr('stroke', 'currentColor')
+                .attr('stroke-width', 2);
+
+            defs.append('marker')
+                .attr('id', 'marker-crowfoot-end')
+                .attr('viewBox', '0 0 12 12')
+                .attr('refX', 12)
+                .attr('refY', 6)
+                .attr('markerWidth', 8)
+                .attr('markerHeight', 8)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M 0 0 L 12 6 M 0 12 L 12 6 M 0 6 L 12 6')
+                .attr('fill', 'none')
+                .attr('stroke', 'currentColor')
+                .attr('stroke-linecap', 'round')
+                .attr('stroke-width', 2);
+
+            defs.append('marker')
+                .attr('id', 'marker-crowfoot-start')
+                .attr('viewBox', '0 0 12 12')
+                .attr('refX', 0)
+                .attr('refY', 6)
+                .attr('markerWidth', 8)
+                .attr('markerHeight', 8)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M 12 0 L 0 6 M 12 12 L 0 6 M 12 6 L 0 6')
+                .attr('fill', 'none')
+                .attr('stroke', 'currentColor')
+                .attr('stroke-linecap', 'round')
+                .attr('stroke-width', 2);
+
+            inner.selectAll('g.edgePath')
+                .each(function(e) {
+                    const edge = g.edge(e);
+                    const type = edge && edge.class ? edge.class : 'one-to-one';
+                    const pathSel = d3.select(this).select('path')
+                        .attr('marker-start', null)
+                        .attr('marker-end', null);
+
+                    switch (type) {
+                        case 'inheritance':
+                            pathSel.attr('marker-end', 'url(#marker-inheritance)');
+                            break;
+                        case 'one-to-many':
+                            pathSel.attr('marker-start', 'url(#marker-bar-start)')
+                                   .attr('marker-end', 'url(#marker-crowfoot-end)');
+                            break;
+                        case 'many-to-many':
+                            pathSel.attr('marker-start', 'url(#marker-crowfoot-start)')
+                                   .attr('marker-end', 'url(#marker-crowfoot-end)');
+                            break;
+                        case 'one-to-one':
+                        default:
+                            pathSel.attr('marker-start', 'url(#marker-bar-start)')
+                                   .attr('marker-end', 'url(#marker-bar-end)');
+                    }
                 });
 
-            inner.selectAll('g.edgePath path')
-                .attr('marker-end', function() {
-                    const edgeClass = d3.select(this.parentNode).attr('class');
-                    if (edgeClass.includes('one-to-one')) return 'url(#arrowhead-one-to-one)';
-                    if (edgeClass.includes('one-to-many')) return 'url(#arrowhead-one-to-many)';
-                    if (edgeClass.includes('many-to-many')) return 'url(#arrowhead-many-to-many)';
-                    return 'url(#arrowhead-one-to-one)';
-                });
-
-            visibleSchemas.forEach(schemaName => {
-                const node = g.node(schemaName);
-                if (nodePositions.has(schemaName)) {
-                    const pos = nodePositions.get(schemaName);
-                    node.x = pos.x;
-                    node.y = pos.y;
+            inner.selectAll('g.node').each(function(d) {
+                const saved = nodePositions.get(d);
+                if (saved) {
+                    const node = g.node(d);
+                    node.x = saved.x;
+                    node.y = saved.y;
+                    d3.select(this).attr('transform', `translate(${saved.x},${saved.y})`);
+                } else {
+                    const node = g.node(d);
+                    nodePositions.set(d, { x: node.x, y: node.y });
                 }
+            });
+
+            inner.selectAll('g.edgePath').each(function(e) {
+                const sourceNode = g.node(e.v);
+                const targetNode = g.node(e.w);
+                if (!sourceNode || !targetNode) return;
+
+                const points = [
+                    { x: sourceNode.x, y: sourceNode.y + sourceNode.height / 2 },
+                    { x: targetNode.x, y: targetNode.y - targetNode.height / 2 }
+                ];
+
+                const line = d3.line()
+                    .x(d => d.x)
+                    .y(d => d.y)
+                    .curve(d3.curveBasis);
+
+                const edgeGroup = d3.select(this);
+                edgeGroup.select('path').attr('d', line(points));
+
+                const midX = (points[0].x + points[1].x) / 2;
+                const midY = (points[0].y + points[1].y) / 2;
+                edgeGroup.select('g.edgeLabel').attr('transform', `translate(${midX},${midY})`);
             });
 
             const graphWidth = g.graph().width;
@@ -816,6 +917,7 @@
             const drag = d3.drag()
                 .on('start', function(event) {
                     isDraggingNode = true;
+                    if (panZoomInstance) panZoomInstance.disablePan();
                     d3.select(this).classed('dragging', true);
                     event.sourceEvent.stopPropagation();
                 })
@@ -823,9 +925,9 @@
                     const node = g.node(d);
                     if (!node) return;
 
-                    const transform = d3.zoomTransform(inner.node());
-                    const dx = event.dx / transform.k;
-                    const dy = event.dy / transform.k;
+                    const scale = panZoomInstance ? panZoomInstance.getZoom() : 1;
+                    const dx = event.dx / scale;
+                    const dy = event.dy / scale;
 
                     node.x += dx;
                     node.y += dy;
@@ -835,10 +937,11 @@
                     d3.select(this)
                         .attr('transform', `translate(${node.x},${node.y})`);
 
-                    updateEdges(inner, g, d);
+                    updateEdgesForNode(inner, g, d);
                 })
                 .on('end', function() {
                     isDraggingNode = false;
+                    if (panZoomInstance) panZoomInstance.enablePan();
                     d3.select(this).classed('dragging', false);
                 });
 
@@ -846,53 +949,30 @@
                 .call(drag);
         }
 
-        function updateEdges(inner, g, nodeId) {
-            g.edges().forEach(e => {
-                if (e.v === nodeId || e.w === nodeId) {
-                    const edge = g.edge(e);
-                    const sourceNode = g.node(e.v);
-                    const targetNode = g.node(e.w);
+        function updateEdgesForNode(inner, g, movedId) {
+            const line = d3.line()
+                .x(d => d.x)
+                .y(d => d.y)
+                .curve(d3.curveBasis);
 
-                    if (!sourceNode || !targetNode) return;
+            inner.selectAll('g.edgePath').each(function(e) {
+                if (e.v !== movedId && e.w !== movedId) return;
 
-                    const points = [
-                        { x: sourceNode.x, y: sourceNode.y + sourceNode.height / 2 },
-                        { x: targetNode.x, y: targetNode.y - targetNode.height / 2 }
-                    ];
+                const sourceNode = g.node(e.v);
+                const targetNode = g.node(e.w);
+                if (!sourceNode || !targetNode) return;
 
-                    const line = d3.line()
-                        .x(d => d.x)
-                        .y(d => d.y)
-                        .curve(d3.curveBasis);
+                const points = [
+                    { x: sourceNode.x, y: sourceNode.y + sourceNode.height / 2 },
+                    { x: targetNode.x, y: targetNode.y - targetNode.height / 2 }
+                ];
 
-                    const edgePath = inner.select(`g.edgePath[data-from="${CSS.escape(e.v)}"][data-to="${CSS.escape(e.w)}"] path`);
-                    if (edgePath.empty()) {
-                        inner.selectAll('g.edgePath').each(function() {
-                            const path = d3.select(this).select('path');
-                            const pathNode = path.node();
-                            if (pathNode) {
-                                const pathData = pathNode.getAttribute('d');
-                                if (pathData) {
-                                    d3.select(this)
-                                        .attr('data-from', e.v)
-                                        .attr('data-to', e.w);
-                                }
-                            }
-                        });
-                    }
+                const edgeGroup = d3.select(this);
+                edgeGroup.select('path').attr('d', line(points));
 
-                    const selector = `g.edgePath[data-from="${CSS.escape(e.v)}"][data-to="${CSS.escape(e.w)}"]`;
-                    const edgeGroup = inner.select(selector);
-                    
-                    if (!edgeGroup.empty()) {
-                        edgeGroup.select('path').attr('d', line(points));
-                        
-                        const midX = (points[0].x + points[1].x) / 2;
-                        const midY = (points[0].y + points[1].y) / 2;
-                        edgeGroup.select('g.edgeLabel')
-                            .attr('transform', `translate(${midX},${midY})`);
-                    }
-                }
+                const midX = (points[0].x + points[1].x) / 2;
+                const midY = (points[0].y + points[1].y) / 2;
+                edgeGroup.select('g.edgeLabel').attr('transform', `translate(${midX},${midY})`);
             });
         }
 
