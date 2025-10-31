@@ -5,31 +5,1061 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenAPI ER Diagram Visualizer</title>
     <style>
-        /* Placeholder for CSS - will be implemented */
+        :root {
+            --bg: #0b0e14;
+            --panel: #121826;
+            --panel-2: #0f1523;
+            --text: #e6edf3;
+            --muted: #9aa7b3;
+            --accent: #6aa9ff;
+            --ok: #39d98a;
+            --warn: #a78bfa;
+            --info: #60a5fa;
+            --danger: #fb7185;
+            --grid: rgba(255, 255, 255, 0.04);
+            --box: #1b2233;
+            --box-border: #2a3550;
+            --enum-pill: #2d3a58;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0b0e14;
-            color: #e6edf3;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #toolbar {
+            background: var(--panel);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--box-border);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        #toolbar h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .dual-list-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .list-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .list-box label {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .list-box select {
+            background: var(--panel-2);
+            border: 1px solid var(--box-border);
+            color: var(--text);
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            min-height: 80px;
+            outline: none;
+        }
+
+        .list-box select:focus {
+            border-color: var(--accent);
+        }
+
+        .list-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        button {
+            background: var(--panel-2);
+            border: 1px solid var(--box-border);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: var(--box);
+            border-color: var(--accent);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        button.primary:hover {
+            background: #5a99ef;
+        }
+
+        #main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #left-panel {
+            width: 480px;
+            background: var(--panel);
+            border-right: 1px solid var(--box-border);
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        #json-input {
+            flex: 1;
+            background: var(--panel-2);
+            border: 1px solid var(--box-border);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
+        }
+
+        #json-input:focus {
+            border-color: var(--accent);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        #right-panel {
+            flex: 1;
+            position: relative;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        #svg-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        #error-banner {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--danger);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: none;
+            max-width: 600px;
+            z-index: 20;
+        }
+
+        #test-panel {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background: var(--panel);
+            border: 1px solid var(--box-border);
+            border-radius: 8px;
+            padding: 16px;
+            max-width: 400px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 20;
+        }
+
+        #test-panel h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+        }
+
+        .test-result {
+            font-size: 12px;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--box-border);
+        }
+
+        .test-result:last-child {
+            border-bottom: none;
+        }
+
+        .test-result.pass {
+            color: var(--ok);
+        }
+
+        .test-result.fail {
+            color: var(--danger);
+        }
+
+        .node rect {
+            fill: var(--box);
+            stroke: var(--box-border);
+            stroke-width: 2px;
+            rx: 8px;
+            ry: 8px;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+        }
+
+        .node text {
+            fill: var(--text);
+        }
+
+        .edgePath path {
+            stroke-width: 2px;
+            fill: none;
+        }
+
+        .edgePath.one-to-one path {
+            stroke: var(--accent);
+        }
+
+        .edgePath.one-to-many path {
+            stroke: var(--ok);
+        }
+
+        .edgePath.many-to-many path {
+            stroke: var(--warn);
+        }
+
+        .edgeLabel {
+            background: var(--panel);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .node-title {
+            font-weight: 600;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--box-border);
+            background: var(--panel-2);
+            border-radius: 6px 6px 0 0;
+        }
+
+        .node-fields {
+            padding: 8px 12px;
+        }
+
+        .field-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            gap: 16px;
+            font-size: 12px;
+        }
+
+        .field-name {
+            font-weight: 600;
+            overflow-wrap: anywhere;
+        }
+
+        .field-type {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            color: var(--muted);
+            text-align: right;
+            overflow-wrap: anywhere;
+        }
+
+        .enum-pill {
+            display: inline-block;
+            background: var(--enum-pill);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        .node {
+            cursor: grab;
+        }
+
+        .node.dragging {
+            cursor: grabbing;
+        }
+
+        marker path {
+            fill: currentColor;
         }
     </style>
 </head>
 <body>
     <div id="app">
-        <h1>OpenAPI ER Diagram Visualizer</h1>
-        <p>This application will visualize OpenAPI schemas as ER diagrams.</p>
-        <!-- Verification: Testing repo access and PR workflow -->
+        <div id="toolbar">
+            <h1>OpenAPI ER Diagram Visualizer</h1>
+            <div class="dual-list-container">
+                <div class="list-box">
+                    <label>Available Schemas</label>
+                    <select id="available-list" multiple size="3"></select>
+                </div>
+                <div class="list-controls">
+                    <button id="add-btn" title="Add to visible">&gt;</button>
+                    <button id="remove-btn" title="Remove from visible">&lt;</button>
+                </div>
+                <div class="list-box">
+                    <label>Visible Schemas</label>
+                    <select id="visible-list" multiple size="3"></select>
+                </div>
+            </div>
+        </div>
+        <div id="main-content">
+            <div id="left-panel">
+                <textarea id="json-input" placeholder="Paste OpenAPI 3.x JSON here..."></textarea>
+                <div class="button-group">
+                    <button id="load-sample-btn">Load Sample</button>
+                    <button id="prettify-btn">Prettify</button>
+                    <button id="minify-btn">Minify</button>
+                    <button id="render-btn" class="primary">Render (⌘/Ctrl+Enter)</button>
+                </div>
+            </div>
+            <div id="right-panel">
+                <div id="svg-container">
+                    <svg id="diagram"></svg>
+                    <div id="error-banner"></div>
+                    <div id="controls">
+                        <button id="reset-zoom-btn">Reset Zoom</button>
+                        <button id="export-svg-btn">Export SVG</button>
+                        <button id="run-tests-btn">Run Tests</button>
+                    </div>
+                    <div id="test-panel">
+                        <h3>Test Results</h3>
+                        <div id="test-results"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- External Libraries -->
     <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
     <script src="https://unpkg.com/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
     <script src="https://unpkg.com/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
 
     <script>
-        // Placeholder for JavaScript - will be implemented
-        console.log('OpenAPI ER Diagram Visualizer loaded');
+        const SAMPLE_JSON = {
+            "openapi": "3.0.3",
+            "info": {
+                "title": "Party and Address API",
+                "version": "1.0.0"
+            },
+            "components": {
+                "schemas": {
+                    "Party": {
+                        "type": "object",
+                        "properties": {
+                            "partyId": { "type": "string", "format": "uuid" },
+                            "partyType": { "type": "string", "enum": ["Person", "Entity"] },
+                            "addresses": {
+                                "type": "array",
+                                "items": { "$ref": "#/components/schemas/Address" }
+                            },
+                            "contacts": {
+                                "type": "array",
+                                "items": { "$ref": "#/components/schemas/Contact" }
+                            }
+                        }
+                    },
+                    "Person": {
+                        "type": "object",
+                        "allOf": [
+                            { "$ref": "#/components/schemas/Party" },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "firstName": { "type": "string" },
+                                    "lastName": { "type": "string" },
+                                    "dateOfBirth": { "type": "string", "format": "date" },
+                                    "gender": { "type": "string", "enum": ["Male", "Female", "Other"] }
+                                }
+                            }
+                        ]
+                    },
+                    "Entity": {
+                        "type": "object",
+                        "allOf": [
+                            { "$ref": "#/components/schemas/Party" },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "entityName": { "type": "string" },
+                                    "registrationNumber": { "type": "string" },
+                                    "incorporationDate": { "type": "string", "format": "date" }
+                                }
+                            }
+                        ]
+                    },
+                    "Address": {
+                        "type": "object",
+                        "properties": {
+                            "addressId": { "type": "string", "format": "uuid" },
+                            "street": { "type": "string" },
+                            "city": { "type": "string" },
+                            "state": { "type": "string" },
+                            "postalCode": { "type": "string" },
+                            "country": { "type": "string" }
+                        }
+                    },
+                    "Contact": {
+                        "type": "object",
+                        "properties": {
+                            "type": { "type": "string", "enum": ["Email", "Phone", "Fax"] },
+                            "value": { "type": "string" },
+                            "preferred": { "type": "boolean" }
+                        }
+                    }
+                }
+            }
+        };
+
+        let allSchemas = {};
+        let visibleSchemas = new Set();
+        let nodePositions = new Map();
+        let panZoomInstance = null;
+        let isDraggingNode = false;
+        let currentGraph = null;
+
+        const jsonInput = document.getElementById('json-input');
+        const availableList = document.getElementById('available-list');
+        const visibleList = document.getElementById('visible-list');
+        const addBtn = document.getElementById('add-btn');
+        const removeBtn = document.getElementById('remove-btn');
+        const loadSampleBtn = document.getElementById('load-sample-btn');
+        const prettifyBtn = document.getElementById('prettify-btn');
+        const minifyBtn = document.getElementById('minify-btn');
+        const renderBtn = document.getElementById('render-btn');
+        const resetZoomBtn = document.getElementById('reset-zoom-btn');
+        const exportSvgBtn = document.getElementById('export-svg-btn');
+        const runTestsBtn = document.getElementById('run-tests-btn');
+        const errorBanner = document.getElementById('error-banner');
+        const testPanel = document.getElementById('test-panel');
+        const testResults = document.getElementById('test-results');
+
+        function showError(message) {
+            errorBanner.textContent = message;
+            errorBanner.style.display = 'block';
+            setTimeout(() => {
+                errorBanner.style.display = 'none';
+            }, 5000);
+        }
+
+        function parseOpenAPI(jsonText) {
+            try {
+                const data = JSON.parse(jsonText);
+                if (!data.components || !data.components.schemas) {
+                    throw new Error('No components.schemas found in OpenAPI document');
+                }
+                return data.components.schemas;
+            } catch (e) {
+                showError(`Parse error: ${e.message}`);
+                throw e;
+            }
+        }
+
+        function updateDualLists() {
+            availableList.innerHTML = '';
+            visibleList.innerHTML = '';
+
+            const allSchemaNames = Object.keys(allSchemas).sort();
+            
+            allSchemaNames.forEach(name => {
+                if (!visibleSchemas.has(name)) {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    availableList.appendChild(option);
+                }
+            });
+
+            Array.from(visibleSchemas).sort().forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                visibleList.appendChild(option);
+            });
+        }
+
+        function extractRef(refString) {
+            if (!refString) return null;
+            const match = refString.match(/#\/components\/schemas\/(.+)$/);
+            return match ? match[1] : null;
+        }
+
+        function formatType(property) {
+            if (!property) return 'any';
+            
+            if (property.$ref) {
+                return extractRef(property.$ref);
+            }
+            
+            if (property.type === 'array') {
+                if (property.items) {
+                    if (property.items.$ref) {
+                        return `${extractRef(property.items.$ref)}[]`;
+                    }
+                    return `${property.items.type || 'any'}[]`;
+                }
+                return 'array';
+            }
+            
+            if (property.oneOf || property.anyOf || property.allOf) {
+                return 'composed';
+            }
+            
+            let type = property.type || 'any';
+            if (property.format) {
+                type += ` (${property.format})`;
+            }
+            
+            return type;
+        }
+
+        function formatEnum(enumValues) {
+            if (!enumValues || enumValues.length === 0) return '';
+            const display = enumValues.slice(0, 3).join(' | ');
+            const suffix = enumValues.length > 3 ? '…' : '';
+            return `[${display}${suffix}]`;
+        }
+
+        function measureTextWidth(text, fontSize = 12, fontWeight = 'normal') {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = `${fontWeight} ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+            return ctx.measureText(text).width;
+        }
+
+        function calculateNodeWidth(schemaName, schema) {
+            let maxWidth = measureTextWidth(schemaName, 14, '600') + 24;
+            
+            const properties = schema.properties || {};
+            Object.entries(properties).forEach(([name, prop]) => {
+                const nameWidth = measureTextWidth(name, 12, '600');
+                const typeText = formatType(prop);
+                const typeWidth = measureTextWidth(typeText, 12, 'normal');
+                const enumText = prop.enum ? formatEnum(prop.enum) : '';
+                const enumWidth = enumText ? measureTextWidth(enumText, 10, 'normal') + 10 : 0;
+                const rowWidth = nameWidth + typeWidth + enumWidth + 40;
+                maxWidth = Math.max(maxWidth, rowWidth);
+            });
+            
+            return Math.min(Math.max(maxWidth, 180), 560);
+        }
+
+        function createNodeLabel(schemaName, schema) {
+            const width = calculateNodeWidth(schemaName, schema);
+            const properties = schema.properties || {};
+            
+            let fieldsHtml = '';
+            Object.entries(properties).forEach(([name, prop]) => {
+                const typeText = formatType(prop);
+                const enumHtml = prop.enum ? `<span class="enum-pill">${formatEnum(prop.enum)}</span>` : '';
+                fieldsHtml += `
+                    <div class="field-row">
+                        <span class="field-name">${name}</span>
+                        <span class="field-type">${typeText}${enumHtml}</span>
+                    </div>
+                `;
+            });
+            
+            return `
+                <div style="width: ${width}px;">
+                    <div class="node-title">${schemaName}</div>
+                    <div class="node-fields">${fieldsHtml || '<div style="padding: 4px 0; color: var(--muted); font-size: 11px;">No properties</div>'}</div>
+                </div>
+            `;
+        }
+
+        function extractEdges(schemas, visibleSet) {
+            const edges = [];
+            const edgeMap = new Map();
+            
+            visibleSet.forEach(schemaName => {
+                const schema = schemas[schemaName];
+                if (!schema) return;
+                
+                if (schema.allOf) {
+                    schema.allOf.forEach(item => {
+                        if (item.$ref) {
+                            const target = extractRef(item.$ref);
+                            if (target && visibleSet.has(target)) {
+                                edges.push({
+                                    from: schemaName,
+                                    to: target,
+                                    type: 'one-to-one',
+                                    label: '1–1'
+                                });
+                            }
+                        }
+                    });
+                }
+                
+                const properties = schema.properties || {};
+                Object.entries(properties).forEach(([propName, prop]) => {
+                    if (prop.$ref) {
+                        const target = extractRef(prop.$ref);
+                        if (target && visibleSet.has(target)) {
+                            edges.push({
+                                from: schemaName,
+                                to: target,
+                                type: 'one-to-one',
+                                label: '1–1'
+                            });
+                        }
+                    } else if (prop.type === 'array' && prop.items && prop.items.$ref) {
+                        const target = extractRef(prop.items.$ref);
+                        if (target && visibleSet.has(target)) {
+                            const key = [schemaName, target].sort().join('->');
+                            const reverseKey = [target, schemaName].sort().join('->');
+                            
+                            if (edgeMap.has(reverseKey)) {
+                                edgeMap.get(reverseKey).type = 'many-to-many';
+                                edgeMap.get(reverseKey).label = '*–*';
+                            } else {
+                                const edge = {
+                                    from: schemaName,
+                                    to: target,
+                                    type: 'one-to-many',
+                                    label: '1–*'
+                                };
+                                edges.push(edge);
+                                edgeMap.set(key, edge);
+                            }
+                        }
+                    }
+                });
+            });
+            
+            return edges;
+        }
+
+        function renderDiagram() {
+            if (visibleSchemas.size === 0) {
+                return;
+            }
+
+            const svg = d3.select('#diagram');
+            svg.selectAll('*').remove();
+
+            const g = new dagreD3.graphlib.Graph({ compound: true })
+                .setGraph({
+                    rankdir: 'TB',
+                    nodesep: 80,
+                    ranksep: 100,
+                    marginx: 40,
+                    marginy: 40
+                })
+                .setDefaultEdgeLabel(() => ({}));
+
+            visibleSchemas.forEach(schemaName => {
+                const schema = allSchemas[schemaName];
+                if (!schema) return;
+
+                const width = calculateNodeWidth(schemaName, schema);
+                const propertiesCount = Object.keys(schema.properties || {}).length;
+                const height = 40 + (propertiesCount > 0 ? propertiesCount * 24 + 16 : 24);
+
+                g.setNode(schemaName, {
+                    labelType: 'html',
+                    label: createNodeLabel(schemaName, schema),
+                    width: width,
+                    height: height,
+                    rx: 8,
+                    ry: 8
+                });
+            });
+
+            const edges = extractEdges(allSchemas, visibleSchemas);
+            edges.forEach(edge => {
+                g.setEdge(edge.from, edge.to, {
+                    label: edge.label,
+                    class: edge.type,
+                    arrowheadClass: edge.type,
+                    curve: d3.curveBasis
+                });
+            });
+
+            currentGraph = g;
+
+            const inner = svg.append('g');
+            const render = new dagreD3.render();
+            render(inner, g);
+
+            svg.append('defs').selectAll('marker')
+                .data(['one-to-one', 'one-to-many', 'many-to-many'])
+                .enter().append('marker')
+                .attr('id', d => `arrowhead-${d}`)
+                .attr('viewBox', '0 0 10 10')
+                .attr('refX', 9)
+                .attr('refY', 5)
+                .attr('markerWidth', 6)
+                .attr('markerHeight', 6)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+                .attr('fill', d => {
+                    if (d === 'one-to-one') return '#6aa9ff';
+                    if (d === 'one-to-many') return '#39d98a';
+                    return '#a78bfa';
+                });
+
+            inner.selectAll('g.edgePath path')
+                .attr('marker-end', function() {
+                    const edgeClass = d3.select(this.parentNode).attr('class');
+                    if (edgeClass.includes('one-to-one')) return 'url(#arrowhead-one-to-one)';
+                    if (edgeClass.includes('one-to-many')) return 'url(#arrowhead-one-to-many)';
+                    if (edgeClass.includes('many-to-many')) return 'url(#arrowhead-many-to-many)';
+                    return 'url(#arrowhead-one-to-one)';
+                });
+
+            visibleSchemas.forEach(schemaName => {
+                const node = g.node(schemaName);
+                if (nodePositions.has(schemaName)) {
+                    const pos = nodePositions.get(schemaName);
+                    node.x = pos.x;
+                    node.y = pos.y;
+                }
+            });
+
+            const graphWidth = g.graph().width;
+            const graphHeight = g.graph().height;
+            const svgWidth = svg.node().clientWidth;
+            const svgHeight = svg.node().clientHeight;
+            const xCenterOffset = (svgWidth - graphWidth) / 2;
+            const yCenterOffset = (svgHeight - graphHeight) / 2;
+
+            if (panZoomInstance) {
+                panZoomInstance.destroy();
+            }
+
+            panZoomInstance = svgPanZoom('#diagram', {
+                zoomEnabled: true,
+                controlIconsEnabled: false,
+                fit: false,
+                center: false,
+                minZoom: 0.1,
+                maxZoom: 10,
+                beforePan: () => !isDraggingNode
+            });
+
+            inner.attr('transform', `translate(${xCenterOffset}, ${yCenterOffset})`);
+            panZoomInstance.resize();
+            panZoomInstance.updateBBox();
+
+            setupNodeDragging(inner, g);
+        }
+
+        function setupNodeDragging(inner, g) {
+            const drag = d3.drag()
+                .on('start', function(event) {
+                    isDraggingNode = true;
+                    d3.select(this).classed('dragging', true);
+                    event.sourceEvent.stopPropagation();
+                })
+                .on('drag', function(event, d) {
+                    const node = g.node(d);
+                    if (!node) return;
+
+                    const transform = d3.zoomTransform(inner.node());
+                    const dx = event.dx / transform.k;
+                    const dy = event.dy / transform.k;
+
+                    node.x += dx;
+                    node.y += dy;
+
+                    nodePositions.set(d, { x: node.x, y: node.y });
+
+                    d3.select(this)
+                        .attr('transform', `translate(${node.x},${node.y})`);
+
+                    updateEdges(inner, g, d);
+                })
+                .on('end', function() {
+                    isDraggingNode = false;
+                    d3.select(this).classed('dragging', false);
+                });
+
+            inner.selectAll('g.node')
+                .call(drag);
+        }
+
+        function updateEdges(inner, g, nodeId) {
+            g.edges().forEach(e => {
+                if (e.v === nodeId || e.w === nodeId) {
+                    const edge = g.edge(e);
+                    const sourceNode = g.node(e.v);
+                    const targetNode = g.node(e.w);
+
+                    if (!sourceNode || !targetNode) return;
+
+                    const points = [
+                        { x: sourceNode.x, y: sourceNode.y + sourceNode.height / 2 },
+                        { x: targetNode.x, y: targetNode.y - targetNode.height / 2 }
+                    ];
+
+                    const line = d3.line()
+                        .x(d => d.x)
+                        .y(d => d.y)
+                        .curve(d3.curveBasis);
+
+                    const edgePath = inner.select(`g.edgePath[data-from="${CSS.escape(e.v)}"][data-to="${CSS.escape(e.w)}"] path`);
+                    if (edgePath.empty()) {
+                        inner.selectAll('g.edgePath').each(function() {
+                            const path = d3.select(this).select('path');
+                            const pathNode = path.node();
+                            if (pathNode) {
+                                const pathData = pathNode.getAttribute('d');
+                                if (pathData) {
+                                    d3.select(this)
+                                        .attr('data-from', e.v)
+                                        .attr('data-to', e.w);
+                                }
+                            }
+                        });
+                    }
+
+                    const selector = `g.edgePath[data-from="${CSS.escape(e.v)}"][data-to="${CSS.escape(e.w)}"]`;
+                    const edgeGroup = inner.select(selector);
+                    
+                    if (!edgeGroup.empty()) {
+                        edgeGroup.select('path').attr('d', line(points));
+                        
+                        const midX = (points[0].x + points[1].x) / 2;
+                        const midY = (points[0].y + points[1].y) / 2;
+                        edgeGroup.select('g.edgeLabel')
+                            .attr('transform', `translate(${midX},${midY})`);
+                    }
+                }
+            });
+        }
+
+        loadSampleBtn.addEventListener('click', () => {
+            jsonInput.value = JSON.stringify(SAMPLE_JSON, null, 2);
+            renderBtn.click();
+        });
+
+        prettifyBtn.addEventListener('click', () => {
+            try {
+                const data = JSON.parse(jsonInput.value);
+                jsonInput.value = JSON.stringify(data, null, 2);
+            } catch (e) {
+                showError('Cannot prettify: Invalid JSON');
+            }
+        });
+
+        minifyBtn.addEventListener('click', () => {
+            try {
+                const data = JSON.parse(jsonInput.value);
+                jsonInput.value = JSON.stringify(data);
+            } catch (e) {
+                showError('Cannot minify: Invalid JSON');
+            }
+        });
+
+        renderBtn.addEventListener('click', () => {
+            try {
+                allSchemas = parseOpenAPI(jsonInput.value);
+                
+                if (visibleSchemas.size === 0) {
+                    visibleSchemas = new Set(Object.keys(allSchemas));
+                }
+                
+                updateDualLists();
+                renderDiagram();
+            } catch (e) {
+                console.error('Render error:', e);
+            }
+        });
+
+        addBtn.addEventListener('click', () => {
+            const selected = Array.from(availableList.selectedOptions).map(o => o.value);
+            selected.forEach(name => visibleSchemas.add(name));
+            updateDualLists();
+            renderDiagram();
+        });
+
+        removeBtn.addEventListener('click', () => {
+            const selected = Array.from(visibleList.selectedOptions).map(o => o.value);
+            selected.forEach(name => visibleSchemas.delete(name));
+            updateDualLists();
+            renderDiagram();
+        });
+
+        resetZoomBtn.addEventListener('click', () => {
+            if (panZoomInstance) {
+                panZoomInstance.resetZoom();
+                panZoomInstance.resetPan();
+            }
+        });
+
+        exportSvgBtn.addEventListener('click', () => {
+            const svgElement = document.getElementById('diagram');
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            const blob = new Blob([svgString], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'openapi-er-diagram.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                renderBtn.click();
+            }
+        });
+
+        runTestsBtn.addEventListener('click', () => {
+            testResults.innerHTML = '';
+            const results = [];
+
+            function addTest(name, passed, message = '') {
+                results.push({ name, passed, message });
+                const div = document.createElement('div');
+                div.className = `test-result ${passed ? 'pass' : 'fail'}`;
+                div.textContent = `${passed ? '✓' : '✗'} ${name}${message ? ': ' + message : ''}`;
+                testResults.appendChild(div);
+            }
+
+            try {
+                const schemas = parseOpenAPI(JSON.stringify(SAMPLE_JSON));
+                addTest('Sample loads without error', true);
+            } catch (e) {
+                addTest('Sample loads without error', false, e.message);
+            }
+
+            const expectedNodes = ['Party', 'Person', 'Entity', 'Address', 'Contact'];
+            expectedNodes.forEach(name => {
+                const exists = visibleSchemas.has(name);
+                addTest(`Node exists: ${name}`, exists);
+            });
+
+            if (currentGraph) {
+                const edges = currentGraph.edges();
+                
+                const hasPartyToAddress = edges.some(e => 
+                    e.v === 'Party' && e.w === 'Address' && 
+                    currentGraph.edge(e).class === 'one-to-many'
+                );
+                addTest('Edge: Party → Address (1–*)', hasPartyToAddress);
+
+                const hasPartyToContact = edges.some(e => 
+                    e.v === 'Party' && e.w === 'Contact' && 
+                    currentGraph.edge(e).class === 'one-to-many'
+                );
+                addTest('Edge: Party → Contact (1–*)', hasPartyToContact);
+
+                const hasPersonToParty = edges.some(e => 
+                    e.v === 'Person' && e.w === 'Party' && 
+                    currentGraph.edge(e).class === 'one-to-one'
+                );
+                addTest('Edge: Person → Party (1–1, inheritance)', hasPersonToParty);
+
+                const hasEntityToParty = edges.some(e => 
+                    e.v === 'Entity' && e.w === 'Party' && 
+                    currentGraph.edge(e).class === 'one-to-one'
+                );
+                addTest('Edge: Entity → Party (1–1, inheritance)', hasEntityToParty);
+            } else {
+                addTest('Graph exists for edge testing', false);
+            }
+
+            const partySchema = allSchemas['Party'];
+            if (partySchema && partySchema.properties && partySchema.properties.partyType) {
+                const enumValues = partySchema.properties.partyType.enum;
+                const formatted = formatEnum(enumValues);
+                const showsFirst3 = formatted.includes('Person') && formatted.includes('Entity');
+                addTest('Enums show first 3 values', showsFirst3);
+            }
+
+            const hasPositions = nodePositions.size > 0;
+            addTest('Position persistence works', hasPositions);
+
+            addTest('Reset Zoom is safe', panZoomInstance !== null);
+
+            try {
+                parseOpenAPI('{"invalid": json}');
+                addTest('Invalid JSON surfaces error', false);
+            } catch (e) {
+                addTest('Invalid JSON surfaces error', true);
+            }
+
+            testPanel.style.display = 'block';
+            setTimeout(() => {
+                testPanel.style.display = 'none';
+            }, 10000);
+        });
+
+        window.addEventListener('load', () => {
+            jsonInput.value = JSON.stringify(SAMPLE_JSON, null, 2);
+            renderBtn.click();
+        });
     </script>
 </body>
 </html>
