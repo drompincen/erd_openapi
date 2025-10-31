@@ -388,6 +388,7 @@
                     <div id="error-banner"></div>
                     <div id="controls">
                         <button id="reset-zoom-btn">Reset Zoom</button>
+                        <button id="compact-layout-btn">Compact Layout</button>
                         <button id="export-svg-btn">Export SVG</button>
                         <button id="run-tests-btn">Run Tests</button>
                     </div>
@@ -486,6 +487,7 @@
         let panZoomInstance = null;
         let isDraggingNode = false;
         let currentGraph = null;
+        let lastJsonSignature = '';
 
         const jsonInput = document.getElementById('json-input');
         const availableList = document.getElementById('available-list');
@@ -497,6 +499,7 @@
         const minifyBtn = document.getElementById('minify-btn');
         const renderBtn = document.getElementById('render-btn');
         const resetZoomBtn = document.getElementById('reset-zoom-btn');
+        const compactLayoutBtn = document.getElementById('compact-layout-btn');
         const exportSvgBtn = document.getElementById('export-svg-btn');
         const runTestsBtn = document.getElementById('run-tests-btn');
         const errorBanner = document.getElementById('error-banner');
@@ -596,10 +599,27 @@
             return ctx.measureText(text).width;
         }
 
+        function effectivePropertiesForDisplay(schema, allSchemas) {
+            const props = {};
+            if (schema.properties) {
+                Object.assign(props, schema.properties);
+            }
+            if (Array.isArray(schema.allOf)) {
+                for (const item of schema.allOf) {
+                    if (item.$ref) {
+                        // Inheritance edge already shows this relationship; skip merging parent props to avoid duplication
+                    } else if (item && item.type === 'object' && item.properties) {
+                        Object.assign(props, item.properties);
+                    }
+                }
+            }
+            return props;
+        }
+
         function calculateNodeWidth(schemaName, schema) {
             let maxWidth = measureTextWidth(schemaName, 14, '600') + 24;
             
-            const properties = schema.properties || {};
+            const properties = effectivePropertiesForDisplay(schema, allSchemas);
             Object.entries(properties).forEach(([name, prop]) => {
                 const nameWidth = measureTextWidth(name, 12, '600');
                 const typeText = formatType(prop);
@@ -615,7 +635,7 @@
 
         function createNodeLabel(schemaName, schema) {
             const width = calculateNodeWidth(schemaName, schema);
-            const properties = schema.properties || {};
+            const properties = effectivePropertiesForDisplay(schema, allSchemas);
             
             let fieldsHtml = '';
             Object.entries(properties).forEach(([name, prop]) => {
@@ -756,48 +776,20 @@
 
             defs.append('marker')
                 .attr('id', 'marker-inheritance')
-                .attr('viewBox', '0 0 10 10')
-                .attr('refX', 10)
-                .attr('refY', 5)
-                .attr('markerWidth', 8)
-                .attr('markerHeight', 8)
+                .attr('viewBox', '0 0 12 12')
+                .attr('refX', 12)
+                .attr('refY', 6)
+                .attr('markerWidth', 12)
+                .attr('markerHeight', 12)
                 .attr('orient', 'auto')
                 .append('path')
-                .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+                .attr('d', 'M 0 0 L 12 6 L 0 12 z')
                 .attr('fill', 'none')
                 .attr('stroke', 'currentColor')
                 .attr('stroke-width', 2);
 
             defs.append('marker')
                 .attr('id', 'marker-bar-end')
-                .attr('viewBox', '0 0 10 10')
-                .attr('refX', 10)
-                .attr('refY', 5)
-                .attr('markerWidth', 6)
-                .attr('markerHeight', 6)
-                .attr('orient', 'auto')
-                .append('path')
-                .attr('d', 'M 8 0 L 8 10')
-                .attr('fill', 'none')
-                .attr('stroke', 'currentColor')
-                .attr('stroke-width', 2);
-
-            defs.append('marker')
-                .attr('id', 'marker-bar-start')
-                .attr('viewBox', '0 0 10 10')
-                .attr('refX', 0)
-                .attr('refY', 5)
-                .attr('markerWidth', 6)
-                .attr('markerHeight', 6)
-                .attr('orient', 'auto')
-                .append('path')
-                .attr('d', 'M 2 0 L 2 10')
-                .attr('fill', 'none')
-                .attr('stroke', 'currentColor')
-                .attr('stroke-width', 2);
-
-            defs.append('marker')
-                .attr('id', 'marker-crowfoot-end')
                 .attr('viewBox', '0 0 12 12')
                 .attr('refX', 12)
                 .attr('refY', 6)
@@ -805,14 +797,13 @@
                 .attr('markerHeight', 8)
                 .attr('orient', 'auto')
                 .append('path')
-                .attr('d', 'M 0 0 L 12 6 M 0 12 L 12 6 M 0 6 L 12 6')
+                .attr('d', 'M 10 0 L 10 12')
                 .attr('fill', 'none')
                 .attr('stroke', 'currentColor')
-                .attr('stroke-linecap', 'round')
                 .attr('stroke-width', 2);
 
             defs.append('marker')
-                .attr('id', 'marker-crowfoot-start')
+                .attr('id', 'marker-bar-start')
                 .attr('viewBox', '0 0 12 12')
                 .attr('refX', 0)
                 .attr('refY', 6)
@@ -820,7 +811,36 @@
                 .attr('markerHeight', 8)
                 .attr('orient', 'auto')
                 .append('path')
-                .attr('d', 'M 12 0 L 0 6 M 12 12 L 0 6 M 12 6 L 0 6')
+                .attr('d', 'M 2 0 L 2 12')
+                .attr('fill', 'none')
+                .attr('stroke', 'currentColor')
+                .attr('stroke-width', 2);
+
+            defs.append('marker')
+                .attr('id', 'marker-crowfoot-end')
+                .attr('viewBox', '0 0 14 14')
+                .attr('refX', 14)
+                .attr('refY', 7)
+                .attr('markerWidth', 10)
+                .attr('markerHeight', 10)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M 0 0 L 14 7 M 0 14 L 14 7 M 0 7 L 14 7')
+                .attr('fill', 'none')
+                .attr('stroke', 'currentColor')
+                .attr('stroke-linecap', 'round')
+                .attr('stroke-width', 2);
+
+            defs.append('marker')
+                .attr('id', 'marker-crowfoot-start')
+                .attr('viewBox', '0 0 14 14')
+                .attr('refX', 0)
+                .attr('refY', 7)
+                .attr('markerWidth', 10)
+                .attr('markerHeight', 10)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M 14 0 L 0 7 M 14 14 L 0 7 M 14 7 L 0 7')
                 .attr('fill', 'none')
                 .attr('stroke', 'currentColor')
                 .attr('stroke-linecap', 'round')
@@ -871,9 +891,17 @@
                 const targetNode = g.node(e.w);
                 if (!sourceNode || !targetNode) return;
 
+                const sx = sourceNode.x, sy = sourceNode.y;
+                const tx = targetNode.x, ty = targetNode.y;
+                const dx = tx - sx, dy = ty - sy;
+                const len = Math.hypot(dx, dy) || 1;
+                const ux = dx / len, uy = dy / len;
+                const startClear = 8;
+                const endClear = 14;
+                
                 const points = [
-                    { x: sourceNode.x, y: sourceNode.y + sourceNode.height / 2 },
-                    { x: targetNode.x, y: targetNode.y - targetNode.height / 2 }
+                    { x: sx + ux * (sourceNode.height / 2 + startClear), y: sy + uy * (sourceNode.height / 2 + startClear) },
+                    { x: tx - ux * (targetNode.height / 2 + endClear), y: ty - uy * (targetNode.height / 2 + endClear) }
                 ];
 
                 const line = d3.line()
@@ -966,9 +994,17 @@
                 const targetNode = g.node(e.w);
                 if (!sourceNode || !targetNode) return;
 
+                const sx = sourceNode.x, sy = sourceNode.y;
+                const tx = targetNode.x, ty = targetNode.y;
+                const dx = tx - sx, dy = ty - sy;
+                const len = Math.hypot(dx, dy) || 1;
+                const ux = dx / len, uy = dy / len;
+                const startClear = 8;
+                const endClear = 14;
+                
                 const points = [
-                    { x: sourceNode.x, y: sourceNode.y + sourceNode.height / 2 },
-                    { x: targetNode.x, y: targetNode.y - targetNode.height / 2 }
+                    { x: sx + ux * (sourceNode.height / 2 + startClear), y: sy + uy * (sourceNode.height / 2 + startClear) },
+                    { x: tx - ux * (targetNode.height / 2 + endClear), y: ty - uy * (targetNode.height / 2 + endClear) }
                 ];
 
                 const edgeGroup = d3.select(this);
@@ -1005,9 +1041,21 @@
 
         renderBtn.addEventListener('click', () => {
             try {
+                const currentJsonSignature = Object.keys(JSON.parse(jsonInput.value).components?.schemas || {}).sort().join('|');
+                const jsonChanged = currentJsonSignature !== lastJsonSignature;
+                
                 allSchemas = parseOpenAPI(jsonInput.value);
                 
-                if (visibleSchemas.size === 0) {
+                if (jsonChanged) {
+                    // Reset everything when JSON changes
+                    visibleSchemas = new Set(Object.keys(allSchemas));
+                    nodePositions.clear();
+                    if (panZoomInstance) {
+                        panZoomInstance.resetZoom();
+                        panZoomInstance.resetPan();
+                    }
+                    lastJsonSignature = currentJsonSignature;
+                } else if (visibleSchemas.size === 0) {
                     visibleSchemas = new Set(Object.keys(allSchemas));
                 }
                 
@@ -1033,6 +1081,18 @@
         });
 
         resetZoomBtn.addEventListener('click', () => {
+            if (panZoomInstance) {
+                panZoomInstance.resetZoom();
+                panZoomInstance.resetPan();
+            }
+        });
+
+        compactLayoutBtn.addEventListener('click', () => {
+            // Clear node positions to allow dagre to recompute layout
+            nodePositions.clear();
+            // Re-render with fresh layout
+            renderDiagram();
+            // Center and fit the graph after compact layout
             if (panZoomInstance) {
                 panZoomInstance.resetZoom();
                 panZoomInstance.resetPan();
